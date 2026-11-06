@@ -1,0 +1,49 @@
+services:
+  # 1. Database
+  mongo:
+    image: mongo:6
+    restart: always
+    volumes:
+      - mongo_data:/data/db
+ 
+  # 2. Banking backend (reached through nginx at /api/)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/bank_app
+      - SECRET_KEY=supersecretkey
+    depends_on:
+      - mongo
+ 
+  # 3. Transactions app (reached through nginx at /transactions/)
+  transactions:
+    build: ./transactions
+    environment:
+      - MONGO_URI=mongodb://mongo:27017
+      - PORT=3000
+    depends_on:
+      - mongo
+ 
+  # 4. Frontend - student portfolio static site (reached through nginx at /)
+  studentportfolio:
+    build: ./studentportfolio
+ 
+  # 5. Reverse proxy - single entry point on port 80
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./studentportfolio:/usr/share/nginx/html:ro
+    depends_on:
+      - backend
+      - transactions
+      - studentportfolio
+    restart: unless-stopped
+ 
+volumes:
+  mongo_data:
+ 
